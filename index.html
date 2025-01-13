@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experimental Task</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.85.2/phaser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="scenes/BaseScene.js"></script>
+    <script src="scenes/tutorial.js"></script>
+    <script src="scenes/learning_task.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+        }
+
+        #game-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100%;
+            background-color: #000; /* Optional: Set background color */
+        }
+    </style>
+</head>
+<body>
+    
+<div id="game-container"></div>
+
+<script>    
+var playaudio = 0
+class ExperimentScene extends Phaser.Scene {
+    constructor() {
+        super(' ExperimentScene');
+    }
+
+    preload() {
+        this.load.image('weiter', 'assets/weiter.png');
+
+        this.load.audio('intro', 'assets/sounds/Intro.m4a');
+        this.load.audio('beispiel', 'assets/sounds/Beispiel.mp3');
+        this.load.audio('Aufzeichnung_21', 'assets/sounds/Aufzeichnung_21.m4a');
+        this.load.audio('Aufzeichnung_26', 'assets/sounds/Aufzeichnung_26.m4a');
+        this.load.audio('Aufzeichnung_27', 'assets/sounds/Aufzeichnung_27.m4a');
+        this.load.audio('Aufzeichnung_28', 'assets/sounds/Aufzeichnung_28.m4a');
+        this.load.audio('Aufzeichnung_29', 'assets/sounds/Aufzeichnung_29.m4a');
+        this.load.audio('Aufzeichnung_30', 'assets/sounds/Aufzeichnung_30.m4a');
+        this.load.audio('Aufzeichnung_31', 'assets/sounds/Aufzeichnung_31.m4a');
+
+        this.load.audio('Aufzeichnung_32', 'assets/sounds/Aufzeichnung_32.m4a');
+        this.load.audio('Aufzeichnung_33', 'assets/sounds/Aufzeichnung_33.m4a');
+        
+        this.load.audio('Aufzeichnung_35', 'assets/sounds/Aufzeichnung_35.m4a');
+        this.load.audio('Aufzeichnung_36', 'assets/sounds/Aufzeichnung_36.m4a');
+    }
+
+    create() {
+        this.dimX = 1280;
+        this.dimY = 800;
+        this.centerX = this.dimX / 2;
+        this.centerY = this.dimY / 2;
+        this.colors = [0xff4400, 0xcc2305, 0x993a57, 0x574299, 0x053acc, 0x0062ff];
+
+        this.sounds = {
+            intro: this.sound.add('intro', { volume: 0.5 }),
+            beispiel: this.sound.add('beispiel', { volume: 0.5 }),
+            aufzeichnung21: this.sound.add('Aufzeichnung_21', { volume: 0.5 }),
+            aufzeichnung26: this.sound.add('Aufzeichnung_26', { volume: 0.5 }),
+            aufzeichnung27: this.sound.add('Aufzeichnung_27', { volume: 0.5 }),
+            aufzeichnung28: this.sound.add('Aufzeichnung_28', { volume: 0.5 }),
+            aufzeichnung29: this.sound.add('Aufzeichnung_29', { volume: 0.5 }),
+            aufzeichnung30: this.sound.add('Aufzeichnung_30', { volume: 0.5 }),
+            aufzeichnung31: this.sound.add('Aufzeichnung_31', { volume: 0.5 }),
+            aufzeichnung32: this.sound.add('Aufzeichnung_32', { volume: 0.5 }),
+            aufzeichnung33: this.sound.add('Aufzeichnung_33', { volume: 0.5 }),
+            aufzeichnung35: this.sound.add('Aufzeichnung_35', { volume: 0.5 }),
+            aufzeichnung35: this.sound.add('Aufzeichnung_36', { volume: 0.5 }),
+
+
+        };
+
+        this.executeProcedure();
+        this.waitFor(10);
+    }
+
+    async executeProcedure() {
+        await this.startScreen();
+
+        await this.nextWait();
+
+        this.sounds.beispiel.play();
+
+        await this.showSlots();
+        await this.showCircles();
+
+        let childrenCircles = this.circlesGr.getChildren();
+        let childrenSlots = this.slotsGr.getChildren();
+        await this.waitFor(10000);
+        var idxs = [0, 5, 1, 2, 3, 4];
+        for (let i = 0; i < 6; i++) {
+            if (i == 2) {
+                await this.waitFor(6000);
+            }
+            await this.moveCircles(
+                childrenCircles[idxs[i]],
+                childrenSlots[idxs[i]].x,
+                childrenSlots[idxs[i]].y
+            );
+            if (i < 2) {
+                await this.waitFor(3000);
+            } else {
+                await this.waitFor(1500);
+            }
+        }
+
+        await this.waitFor(5000);
+
+        this.sounds.aufzeichnung21.play();
+
+        // Move two circles out
+        let circ1 = childrenCircles[2];
+        let circ2 = childrenCircles[3];
+        await this.moveCircles(circ1, this.centerX + 150, this.centerY);
+        await this.moveCircles(circ2, this.centerX - 150, this.centerY);
+
+        await this.waitFor(2000);
+
+        await this.getCircleAnswers(circ1, circ2, childrenSlots)
+        this.sounds.aufzeichnung27.play();
+
+        await this.waitFor(6000);
+
+        
+
+
+        // Remove all visible features
+        this.children.removeAll();
+        
+
+        // Show vertical array of slots on the left side
+        this.results = { color: [] }; // Initialize results
+        this.trialPairs = [[2, 3], [1, 2], [3, 4], [1, 2], [2, 3], [3, 4]];
+
+        this.slotsGr = this.add.group();
+        this.stimuliGr = this.add.group();
+        let circDim = 100; 
+        for (let i = 0; i < 6; i++) {
+            let slotY = this.centerY - 280 + i * 110;
+
+            // Add slot (rectangle)
+            let slot = this.add.rectangle(150, slotY, circDim, circDim, 0xf2f4f4).setOrigin(0.5);
+            this.slotsGr.add(slot);
+
+            // Add smaller square (stimulus)
+            let stimulus = this.add.rectangle(150, slotY, circDim * 0.95, circDim * 0.95, this.colors[i]).setOrigin(0.5);
+            this.stimuliGr.add(stimulus);
+        }
+
+        // Play the next sound
+        await this.sounds.aufzeichnung28.play(); 
+        await this.waitFor(18000);
+        this.sounds.aufzeichnung29.play(); 
+
+        let ii = 0
+        for (let trial of this.trialPairs) {
+            await this.runColorTask(trial, ii);
+            if (ii<5) {
+                await this.playSoundAndWait(this.sounds.aufzeichnung30)
+            }
+            
+            ii++
+        }
+        console.log(this.results.color)
+        
+
+
+    }
+    playSoundAndWait(sound) {
+        return new Promise((resolve) => {
+            // Play the sound
+            sound.play();
+
+            // Resolve the promise when the sound completes
+            sound.once('complete', resolve);
+        });
+    }
+    runColorTask(trial, trialIndex) {
+        return new Promise((resolve) => {
+            // Reset all stimuli to their original positions
+            const stimuli = this.stimuliGr.getChildren();
+            const slots = this.slotsGr.getChildren();
+
+            stimuli.forEach((stimulus, index) => {
+                const slot = slots[index];
+                if (trial.includes(index)) {
+                    // Randomize positions for the stimuli in the trial
+                    stimulus.setPosition(
+                        Phaser.Math.Between(this.centerX - 300, this.centerX + 300),
+                        Phaser.Math.Between(this.centerY - 300, this.centerY + 300)
+                    );
+                } else {
+                    // Reset position for all other stimuli
+                    stimulus.setPosition(slot.x, slot.y);
+                }
+                stimulus.setAlpha(1); // Ensure stimuli are visible
+                stimulus.setDepth(1); // Reset depth
+                slot.isOccupied = false; // Reset slot state
+            });
+
+            // Handle the trial-specific stimuli
+            const stimulus1 = stimuli[trial[0]];
+            const stimulus2 = stimuli[trial[1]];
+
+            // Make stimuli reappear at their randomized positions
+            this.tweens.add({
+                targets: [stimulus1, stimulus2],
+                alpha: 1,
+                duration: 0,
+                onComplete: async () => {
+                    // Make the first stimulus glow and draggable
+                    await this.addGlowEffect(stimulus1, true);
+                    await this.makeDraggable(stimulus1, trial[0], trialIndex, 0);
+                    console.log(this.results.color)
+
+                    // Make the second stimulus glow and draggable
+                    await this.addGlowEffect(stimulus2, true);
+                    await this.makeDraggable(stimulus2, trial[1], trialIndex, 1);
+
+                    resolve();
+                },
+            });
+        });
+    }
+
+
+    makeDraggable(stimulus, correctIndex, trialIndex, stimId) {
+        return new Promise((resolve) => {
+            stimulus.setInteractive({ draggable: true });
+            this.input.setDraggable(stimulus);
+
+            // Clean up existing listeners to prevent duplicate triggers
+            this.input.off('drag');
+            this.input.off('dragend');
+
+            // Add dragging logic
+            this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+                if (gameObject === stimulus) {
+                    // Bring the stimulus to the top
+                    gameObject.setDepth(10);
+                    gameObject.x = dragX;
+                    gameObject.y = dragY;
+                }
+            });
+
+            // Add drag end logic
+            this.input.on('dragend', (pointer, gameObject) => {
+                if (gameObject === stimulus) {
+                    // Reset depth after dragging ends
+                    gameObject.setDepth(1);
+
+                    // Find the nearest slot
+                    let nearestSlot = null;
+                    let minDistance = Infinity;
+                    this.slotsGr.getChildren().forEach((slot) => {
+                        const dx = slot.x - gameObject.x;
+                        const dy = slot.y - gameObject.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestSlot = slot;
+                        }
+                    });
+
+                    // Snap to the nearest slot
+                    if (nearestSlot) {
+                        gameObject.x = nearestSlot.x;
+                        gameObject.y = nearestSlot.y;
+
+                        // Mark the slot as occupied
+                        nearestSlot.isOccupied = true;
+                    }
+
+                    // Record result as true if placed in the correct slot, false otherwise
+                    const isCorrect = nearestSlot && nearestSlot.x === this.slotsGr.getChildren()[correctIndex].x && nearestSlot.y === this.slotsGr.getChildren()[correctIndex].y;
+                    if (!this.results.color[trialIndex]) this.results.color[trialIndex] = [];
+                    this.results.color[trialIndex][stimId] = isCorrect;
+
+                    console.log(`Trial ${trialIndex}, Stim ${stimId}: ${isCorrect ? 'Correct' : 'Wrong'}`);
+
+                    // Remove glow when dragging ends
+                    this.addGlowEffect(gameObject, false);
+
+                    gameObject.disableInteractive(); // Disable dragging
+                    resolve();
+                }
+            });
+        });
+    }
+
+
+    replotRemainingStimuli() {
+        const remainingStimuli = this.stimuliGr.getChildren().filter((stimulus, index) => {
+            return this.results.color.flat().indexOf(false) === index;
+        });
+
+        remainingStimuli.forEach((stimulus, index) => {
+            const correctSlot = this.slotsGr.getChildren()[index];
+            this.tweens.add({
+                targets: stimulus,
+                x: correctSlot.x,
+                y: correctSlot.y,
+                duration: 500,
+                onComplete: () => {
+                    console.log(`Stimulus ${index} re-plotted to correct location.`);
+                },
+            });
+        });
+    }
+
+
+    addGlowEffect(stimulus, enable) {
+        if (enable) {
+            // Create glow graphics
+            if (!stimulus.glow) {
+                const glow = this.add.graphics();
+                glow.lineStyle(8, 0xffff00, 1);
+                glow.strokeRect(
+                    stimulus.x - stimulus.width / 2,
+                    stimulus.y - stimulus.height / 2,
+                    stimulus.width,
+                    stimulus.height
+                );
+                stimulus.glow = glow; // Store reference to glow
+            }
+        } else if (stimulus.glow) {
+            // Destroy the glow graphics
+            stimulus.glow.destroy();
+            stimulus.glow = null; // Remove reference
+        }
+    }
+
+    removeGlowEffect(stimulus) {
+        // Remove the glow effect (if any exists for the stimulus)
+        const glow = this.add.graphics();
+        glow.clear();
+    }
+
+
+    async hideArray() {
+        return new Promise((resolve) => {
+            this.tweens.add({
+                targets: this.stimuliGr.getChildren(),
+                alpha: 0, // Fade out the array
+                duration: 500,
+                onComplete: () => {
+                    this.time.delayedCall(2000, () => {
+                        // Fade back in after 2 seconds
+                        this.tweens.add({
+                            targets: this.stimuliGr.getChildren(),
+                            alpha: 1,
+                            duration: 0,
+                            onComplete: resolve,
+                        });
+                    });
+                },
+            });
+        });
+    }
+
+
+    
+    getCircleAnswers(circ1, circ2, childrenSlots) {
+        return new Promise((resolve) => {
+            // Turn Circle 1 black and make interactive
+            this.makeInteractive(circ1, childrenSlots[2], () => {
+                this.sounds.aufzeichnung26.play();
+
+                // Turn Circle 2 black and make interactive
+                this.makeInteractive(circ2, childrenSlots[3], () => {
+                    // Display feedback text
+                    const text = this.add.text(
+                        this.centerX,
+                        this.centerY - 200,
+                        'Gut gemacht! Das ist richtig!',
+                        {fontSize: '28px',color: '#138d75' }).setOrigin(0.5);
+                    
+                    resolve()
+                });
+            });
+
+        })
+
+    }
+    makeInteractive(circle, targetSlot, onSuccess) {
+        circle.setInteractive({ draggable: true });
+
+        this.input.setDraggable(circle);
+
+        // Dragging logic
+        this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+            if (gameObject === circle) {
+                gameObject.x = dragX;
+                gameObject.y = dragY;
+            }
+        });
+
+        // Drag end logic
+        this.input.on('dragend', (pointer, gameObject) => {
+            if (gameObject === circle) {
+                const dx = targetSlot.x - gameObject.x;
+                const dy = targetSlot.y - gameObject.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Check if the circle is within 20px of the slot
+                if (distance <= 20) {
+                    gameObject.x = targetSlot.x;
+                    gameObject.y = targetSlot.y;
+                    gameObject.disableInteractive(); // Disable dragging
+                    onSuccess(); // Trigger success callback
+                }
+            }
+        });
+    }
+
+    moveCircles(circ, targetX, targetY) {
+        return new Promise((resolve) => {
+            const relativeX = targetX - circ.x;
+            const relativeY = targetY - circ.y;
+            this.tweens.add({
+                targets: circ,
+                x: circ.x + relativeX, // Apply relative motion
+                y: circ.y + relativeY, // Apply relative motion
+                duration: 300, // Smooth transition in 300ms
+
+                onComplete: () => {
+                    // Log the new position of the circle
+                    //console.log(Circle moved to: (${circ.x}, ${circ.y}));
+                    resolve();
+                },
+            });
+        });
+    }
+
+    showSlots() {
+        return new Promise((resolve) => {
+            this.slotsGr = this.add.group();
+            for (let i = 0; i < 6; i++) {
+                let rect = this.add.rectangle(
+                    this.centerX + (-500 + i * 200),
+                    this.centerY + 250,
+                    150,
+                    150,
+                    0xf2f4f4,
+                    1
+                ).setOrigin(0.5);
+                rect.setDepth(0);
+                this.slotsGr.add(rect);
+            }
+            resolve();
+        });
+    }
+
+    showCircles() {
+        return new Promise((resolve) => {
+            this.circlesGr = this.add.group();
+            let xs = [-50, -400, 300, -100, 100, -250];
+            let ys = [-200, 100, 50, 75, -150, -100];
+            for (let i = 0; i < 6; i++) {
+                let circle = this.add.ellipse(
+                    this.centerX + xs[i],
+                    this.centerY + ys[i],
+                    20 * (i + 1),
+                    20 * (i + 1),
+                    0x212f3c
+                );
+                circle.setDepth(2);
+                this.circlesGr.add(circle);
+            }
+            resolve();
+        });
+    }
+
+    startScreen() {
+        return new Promise((resolve) => {
+            this.introText = this.add.text(this.centerX, this.centerY + 30, 'click below to start', {
+                fontSize: '28px',
+                color: '#f39c12',
+            }).setOrigin(0.5);
+            this.next = this.add
+                .image(this.centerX, this.centerY + 300, 'weiter')
+                .setDisplaySize(100, 80)
+                .setDepth(-2)
+                .setOrigin(0.5)
+                .setInteractive();
+
+            this.next.on('pointerdown', () => {
+                this.sounds.intro.play();
+                this.next.alpha = 0.1;
+                this.sounds.intro.on('complete', () => {
+                    this.next.destroy();
+                    this.introText.destroy();
+                    resolve();
+                });
+            });
+        });
+    }
+
+    nextWait() {
+        return new Promise((resolve) => {
+            this.next = this.add
+                .image(this.centerX, this.centerY + 300, 'weiter')
+                .setDisplaySize(100, 80)
+                .setDepth(-2)
+                .setOrigin(0.5)
+                .setInteractive();
+            this.next.on('pointerdown', () => {
+                this.next.destroy();
+                resolve();
+            });
+        });
+    }
+
+    waitFor(duration) {
+        return new Promise((resolve) => {
+            this.time.delayedCall(duration, resolve);
+        });
+    }
+}
+
+const config = {
+    type: Phaser.AUTO,
+    width: 1280,
+    height: 800,
+    parent: 'game-container', // Phaser will append the canvas here
+    scale: {
+        autoCenter: Phaser.Scale.CENTER_BOTH, // Center the canvas
+    },
+    backgroundColor: 0xd5d8dc,
+    scene: [ExperimentScene],
+};
+
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>
