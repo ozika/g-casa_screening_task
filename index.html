@@ -47,6 +47,14 @@ class ExperimentScene extends Phaser.Scene {
     preload() {
         this.load.image('weiter', 'assets/weiter.png');
 
+        this.load.image('stim1', 'assets/imgs/stim1.png');
+        this.load.image('stim2', 'assets/imgs/stim2.png');
+        this.load.image('stim3', 'assets/imgs/stim3.png');
+        this.load.image('stim4', 'assets/imgs/stim4.png');
+        this.load.image('stim5', 'assets/imgs/stim5.png');
+        this.load.image('stim6', 'assets/imgs/stim6.png');
+
+
         this.load.audio('intro', 'assets/sounds/Intro.m4a');
         this.load.audio('beispiel', 'assets/sounds/Beispiel.mp3');
         this.load.audio('Aufzeichnung_21', 'assets/sounds/Aufzeichnung_21.m4a');
@@ -174,16 +182,128 @@ class ExperimentScene extends Phaser.Scene {
         let ii = 0
         for (let trial of this.trialPairs) {
             await this.runColorTask(trial, ii);
-            if (ii<5) {
+            if (ii<4) {
                 await this.playSoundAndWait(this.sounds.aufzeichnung30)
+            } else if (ii==4) {
+                await this.playSoundAndWait(this.sounds.aufzeichnung31)
+
             }
             
             ii++
         }
         console.log(this.results.color)
+
+        this.slotsGr.clear(true, true);
+        // Wait 2 seconds before removing all stimuli
+        await this.waitFor(2000);
+        this.stimuliGr.clear(true, true); // Remove all stimuli from the color task
+
+        const previewGroup = this.add.group();
+        for (let i = 0; i < 6; i++) {
+            const previewX = this.centerX - 300 + i * 110;
+            const previewY = this.dimY / 2; // Center of the screen
+
+            const previewStimulus = this.add.image(previewX, previewY, `stim${i + 1}`).setDisplaySize(90, 90).setOrigin(0.5);
+            previewGroup.add(previewStimulus);
+        }
+        this.sounds.aufzeichnung32.play(); 
+        // Wait for 6 seconds to display all stimuli
+        await this.waitFor(10000);
+
+        // Clear the preview group before starting the shape task
+        previewGroup.clear(true, true);
+
+        // Start the shape task
+        console.log('Starting Shape Task');
+        this.results.shape = []; // Initialize results for the shape task
+        this.trialPairs = [[2, 3], [1, 2], [3, 4], [1, 2], [2, 3], [3, 4]]; // Reuse or redefine trial pairs for the shape task
+
+        // Show horizontal arrangement of shape stimuli
+        this.slotsGr = this.add.group();
+        this.stimuliGr = this.add.group();
+        const stimWidth = 100;
+        for (let i = 0; i < 6; i++) {
+            const slotX = this.centerX - 300 + i * 110;
+            const slotY = this.dimY - 100; // Position at the bottom of the screen
+
+            // Add slot (rectangle)
+            const slot = this.add.rectangle(slotX, slotY, stimWidth, stimWidth, 0xf2f4f4).setOrigin(0.5);
+            this.slotsGr.add(slot);
+
+            // Add shape stimulus (image)
+            const stimulus = this.add.image(slotX, slotY, `stim${i + 1}`).setDisplaySize(90, 90).setOrigin(0.5);
+            this.stimuliGr.add(stimulus);
+        }
+        await this.playSoundAndWait(this.sounds.aufzeichnung33)
+        // Play the shape task trials
+        let trialIndex = 0;
+        for (const trial of this.trialPairs) {
+            await this.runShapeTask(trial, trialIndex);
+            if (ii<4) {
+                await this.playSoundAndWait(this.sounds.aufzeichnung35)
+            } else if (ii==4) {
+                await this.playSoundAndWait(this.sounds.aufzeichnung36)
+
+            }
+            trialIndex++;
+        }
+
+        const text = this.add.text(
+            this.centerX,
+            this.centerY - 200,
+            'Die Aufgabe ist nun abgeschlossen! Gut gemacht!',
+            {fontSize: '28px',color: '#138d75' }).setOrigin(0.5);
         
 
 
+    }
+
+    // Define the new `runShapeTask` method to handle the shape task
+    runShapeTask(trial, trialIndex) {
+        return new Promise((resolve) => {
+            // Reset all stimuli to their original positions
+            const stimuli = this.stimuliGr.getChildren();
+            const slots = this.slotsGr.getChildren();
+
+            stimuli.forEach((stimulus, index) => {
+                const slot = slots[index];
+                if (trial.includes(index)) {
+                    // Randomize positions for the stimuli in the trial
+                    stimulus.setPosition(
+                        Phaser.Math.Between(this.centerX - 300, this.centerX + 300),
+                        Phaser.Math.Between(this.centerY - 300, this.centerY - 100)
+                    );
+                } else {
+                    // Reset position for all other stimuli
+                    stimulus.setPosition(slot.x, slot.y);
+                }
+                stimulus.setAlpha(1); // Ensure stimuli are visible
+                stimulus.setDepth(1); // Reset depth
+                slot.isOccupied = false; // Reset slot state
+            });
+
+            // Handle the trial-specific stimuli
+            const stimulus1 = stimuli[trial[0]];
+            const stimulus2 = stimuli[trial[1]];
+
+            // Make stimuli reappear at their randomized positions
+            this.tweens.add({
+                targets: [stimulus1, stimulus2],
+                alpha: 1,
+                duration: 0,
+                onComplete: async () => {
+                    // Make the first stimulus glow and draggable
+                    await this.addGlowEffect(stimulus1, true);
+                    await this.makeDraggable(stimulus1, trial[0], trialIndex, 0);
+
+                    // Make the second stimulus glow and draggable
+                    await this.addGlowEffect(stimulus2, true);
+                    await this.makeDraggable(stimulus2, trial[1], trialIndex, 1);
+
+                    resolve();
+                },
+            });
+        });
     }
     playSoundAndWait(sound) {
         return new Promise((resolve) => {
@@ -328,26 +448,27 @@ class ExperimentScene extends Phaser.Scene {
     }
 
 
-    addGlowEffect(stimulus, enable) {
-        if (enable) {
-            // Create glow graphics
-            if (!stimulus.glow) {
-                const glow = this.add.graphics();
-                glow.lineStyle(8, 0xffff00, 1);
-                glow.strokeRect(
-                    stimulus.x - stimulus.width / 2,
-                    stimulus.y - stimulus.height / 2,
-                    stimulus.width,
-                    stimulus.height
-                );
-                stimulus.glow = glow; // Store reference to glow
+    // Modify addGlowEffect to make glow tight around images
+        addGlowEffect(stimulus, enable) {
+            if (enable) {
+                // Create glow graphics
+                if (!stimulus.glow) {
+                    const glow = this.add.graphics();
+                    glow.lineStyle(8, 0xffff00, 1);
+                    glow.strokeRect(
+                        stimulus.x - stimulus.displayWidth / 2,
+                        stimulus.y - stimulus.displayHeight / 2,
+                        stimulus.displayWidth,
+                        stimulus.displayHeight
+                    );
+                    stimulus.glow = glow; // Store reference to glow
+                }
+            } else if (stimulus.glow) {
+                // Destroy the glow graphics
+                stimulus.glow.destroy();
+                stimulus.glow = null; // Remove reference
             }
-        } else if (stimulus.glow) {
-            // Destroy the glow graphics
-            stimulus.glow.destroy();
-            stimulus.glow = null; // Remove reference
         }
-    }
 
     removeGlowEffect(stimulus) {
         // Remove the glow effect (if any exists for the stimulus)
