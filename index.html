@@ -182,12 +182,12 @@ class ExperimentScene extends Phaser.Scene {
         let ii = 0
         for (let trial of this.trialPairs) {
             await this.runColorTask(trial, ii);
-            if (ii<4) {
+            if (ii==0) {
                 await this.playSoundAndWait(this.sounds.aufzeichnung30)
-            } else if (ii==4) {
-                await this.playSoundAndWait(this.sounds.aufzeichnung31)
+            }// else if (ii==4) {
+              //  await this.playSoundAndWait(this.sounds.aufzeichnung31)
 
-            }
+            //}
             
             ii++
         }
@@ -208,7 +208,7 @@ class ExperimentScene extends Phaser.Scene {
         }
         this.sounds.aufzeichnung32.play(); 
         // Wait for 6 seconds to display all stimuli
-        await this.waitFor(10000);
+        await this.waitFor(16000);
 
         // Clear the preview group before starting the shape task
         previewGroup.clear(true, true);
@@ -379,6 +379,8 @@ class ExperimentScene extends Phaser.Scene {
                     gameObject.setDepth(10);
                     gameObject.x = dragX;
                     gameObject.y = dragY;
+                    // Remove glow when dragging ends
+                    this.addGlowEffect(gameObject, false);
                 }
             });
 
@@ -417,8 +419,7 @@ class ExperimentScene extends Phaser.Scene {
 
                     console.log(`Trial ${trialIndex}, Stim ${stimId}: ${isCorrect ? 'Correct' : 'Wrong'}`);
 
-                    // Remove glow when dragging ends
-                    this.addGlowEffect(gameObject, false);
+                    
 
                     gameObject.disableInteractive(); // Disable dragging
                     resolve();
