@@ -73,6 +73,10 @@ class ExperimentScene extends Phaser.Scene {
     }
 
     create() {
+        let subid = prompt("Enter participant ID", "");
+
+        // Check if the user clicked "Cancel" (userInput will be null in that case)
+        this.subid = subid   
         this.dimX = 1280;
         this.dimY = 800;
         this.centerX = this.dimX / 2;
@@ -239,12 +243,6 @@ class ExperimentScene extends Phaser.Scene {
         let trialIndex = 0;
         for (const trial of this.trialPairs) {
             await this.runShapeTask(trial, trialIndex);
-            if (ii<4) {
-                await this.playSoundAndWait(this.sounds.aufzeichnung35)
-            } else if (ii==4) {
-                await this.playSoundAndWait(this.sounds.aufzeichnung36)
-
-            }
             trialIndex++;
         }
 
@@ -254,10 +252,63 @@ class ExperimentScene extends Phaser.Scene {
             'Die Aufgabe ist nun abgeschlossen! Gut gemacht!',
             {fontSize: '28px',color: '#138d75' }).setOrigin(0.5);
         
+        console.log(this.results);
 
+        
 
+    // Calculate mean accuracy for color
+    const colorAccuracy = this.calculateMean(this.results.color);
+
+    const cacc = this.add.text(
+            this.centerX,
+            this.centerY - 100,
+            'Color accuracy:'+colorAccuracy ,
+            {fontSize: '28px',color: '#138d75' }).setOrigin(0.5);
+
+    // Calculate mean accuracy for shape
+    const shapeAccuracy = this.calculateMean(this.results.shape);
+
+    const sacc = this.add.text(
+            this.centerX,
+            this.centerY,
+            'Shape accuracy:'+shapeAccuracy ,
+            {fontSize: '28px',color: '#138d75' }).setOrigin(0.5);
+
+    this.results.subid = this.subid
+    this.postData(JSON.stringify(this.results));
     }
-
+    
+    postData(data) {
+        console.log(data)
+        console.log('entered postData');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'save_data.php', true); // change 'write_data.php' to point to php script.
+        xhr.setRequestHeader('Content-Type', 'application/json');
+    
+        xhr.addEventListener('readystatechange', function(e) {
+            if( this.readyState === 4 ) {
+                console.log(xhr.responseText)
+                console.log('bye')
+                //window.location.replace("http://www.thebestdinosaur.com")
+                //window.location.replace("https://app.prolific.co/submissions/complete?cc="+completion_code)
+                //window.location.replace("https://survey.academiccloud.de/index.php/614246?lang=en&PROLIFIC_PID="+prolific_pid)
+    
+            }});
+        
+        //console.log(data);
+        xhr.send(data);
+    
+    
+    }
+    
+    calculateMean(data) {
+        // Combine both dimensions into one array
+        const flattened = [].concat(...data[0], ...data[1]);
+        
+        // Calculate the mean
+        const sum = flattened.reduce((total, value) => total + value, 0);
+        return sum / flattened.length;
+    }
     // Define the new `runShapeTask` method to handle the shape task
     runShapeTask(trial, trialIndex) {
         return new Promise((resolve) => {
@@ -294,11 +345,11 @@ class ExperimentScene extends Phaser.Scene {
                 onComplete: async () => {
                     // Make the first stimulus glow and draggable
                     await this.addGlowEffect(stimulus1, true);
-                    await this.makeDraggable(stimulus1, trial[0], trialIndex, 0);
+                    await this.makeDraggable(stimulus1, trial[0], trialIndex, 0, 'shape');
 
                     // Make the second stimulus glow and draggable
                     await this.addGlowEffect(stimulus2, true);
-                    await this.makeDraggable(stimulus2, trial[1], trialIndex, 1);
+                    await this.makeDraggable(stimulus2, trial[1], trialIndex, 1, 'shape');
 
                     resolve();
                 },
@@ -349,12 +400,12 @@ class ExperimentScene extends Phaser.Scene {
                 onComplete: async () => {
                     // Make the first stimulus glow and draggable
                     await this.addGlowEffect(stimulus1, true);
-                    await this.makeDraggable(stimulus1, trial[0], trialIndex, 0);
+                    await this.makeDraggable(stimulus1, trial[0], trialIndex, 0), 'color';
                     console.log(this.results.color)
 
                     // Make the second stimulus glow and draggable
                     await this.addGlowEffect(stimulus2, true);
-                    await this.makeDraggable(stimulus2, trial[1], trialIndex, 1);
+                    await this.makeDraggable(stimulus2, trial[1], trialIndex, 1, 'color');
 
                     resolve();
                 },
@@ -363,7 +414,7 @@ class ExperimentScene extends Phaser.Scene {
     }
 
 
-    makeDraggable(stimulus, correctIndex, trialIndex, stimId) {
+    makeDraggable(stimulus, correctIndex, trialIndex, stimId, dim='color') {
         return new Promise((resolve) => {
             stimulus.setInteractive({ draggable: true });
             this.input.setDraggable(stimulus);
@@ -414,10 +465,15 @@ class ExperimentScene extends Phaser.Scene {
 
                     // Record result as true if placed in the correct slot, false otherwise
                     const isCorrect = nearestSlot && nearestSlot.x === this.slotsGr.getChildren()[correctIndex].x && nearestSlot.y === this.slotsGr.getChildren()[correctIndex].y;
-                    if (!this.results.color[trialIndex]) this.results.color[trialIndex] = [];
-                    this.results.color[trialIndex][stimId] = isCorrect;
+                    if (dim =='color') {
+                        if (!this.results.color[stimId]) this.results.color[stimId] = [];
+                        this.results[dim][stimId][trialIndex] = isCorrect;
+                    } else if (dim=='shape') {
+                        if (!this.results.shape[stimId]) this.results.shape[stimId] = [];
+                        this.results.shape[stimId][trialIndex] = isCorrect;
+                    }
 
-                    console.log(`Trial ${trialIndex}, Stim ${stimId}: ${isCorrect ? 'Correct' : 'Wrong'}`);
+                    console.log(`Trial ${stimId}, Stim ${stimId}: ${isCorrect ? 'Correct' : 'Wrong'}`);
 
                     
 
@@ -428,7 +484,7 @@ class ExperimentScene extends Phaser.Scene {
         });
     }
 
-
+    /*
     replotRemainingStimuli() {
         const remainingStimuli = this.stimuliGr.getChildren().filter((stimulus, index) => {
             return this.results.color.flat().indexOf(false) === index;
@@ -447,6 +503,7 @@ class ExperimentScene extends Phaser.Scene {
             });
         });
     }
+        */
 
 
     // Modify addGlowEffect to make glow tight around images
