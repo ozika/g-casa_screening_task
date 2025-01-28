@@ -238,7 +238,7 @@ class ExperimentScene extends Phaser.Scene {
             const stimulus = this.add.image(slotX, slotY, `stim${i + 1}`).setDisplaySize(90, 90).setOrigin(0.5);
             this.stimuliGr.add(stimulus);
         }
-        await this.playSoundAndWait(this.sounds.aufzeichnung33)
+        this.playSoundAndWait(this.sounds.aufzeichnung33)
         // Play the shape task trials
         let trialIndex = 0;
         for (const trial of this.trialPairs) {
