@@ -301,61 +301,125 @@ class ExperimentScene extends Phaser.Scene {
     
     }
     
-    calculateMean(data) {
+    //calculateMean(data) {
         // Combine both dimensions into one array
-        const flattened = [].concat(...data[0], ...data[1]);
+    //    const flattened = [].concat(...data[0], ...data[1]);
         
         // Calculate the mean
-        const sum = flattened.reduce((total, value) => total + value, 0);
-        return sum / flattened.length;
+     //   const sum = flattened.reduce((total, value) => total + value, 0);
+      //  return sum / flattened.length;
+   // }
+
+   calculateMean(data) {
+        // This function will now be responsible for converting 0/1 correctness to booleans,
+        // although its name 'calculateMean' might become a bit of a misnomer for this specific use case
+        // if you literally just want the array of booleans.
+        // If you still want a mean calculation for display, you can keep a separate one or
+        // adjust this. For the JSON output, we'll store the direct boolean.
+
+        // The key here is that checkOrderCorrectness already returns 0 or 1.
+        // We will directly store the result of checkOrderCorrectness as a boolean in the array.
+        // The `calculateMean` function isn't directly involved in populating the `this.results.color`
+        // or `this.results.shape` arrays with booleans; instead, `checkOrderCorrectness`
+        // will dictate the value.
+
+        // This function seems to be used *only* for the final display of accuracy.
+        // So, it should still calculate the mean. The change for storing booleans in `this.results.color`
+        // and `this.results.shape` happens where those arrays are populated.
+
+        if (!data || data.length === 0) {
+            return 0; // Avoid division by zero if there's no data
+        }
+        
+        const sum = data.reduce((total, value) => total + value, 0);
+        return sum / data.length;
     }
+
     // Define the new `runShapeTask` method to handle the shape task
     runShapeTask(trial, trialIndex) {
-        return new Promise((resolve) => {
-            // Reset all stimuli to their original positions
+        return new Promise(async (resolve) => {
+            const dim = 'shape';
             const stimuli = this.stimuliGr.getChildren();
             const slots = this.slotsGr.getChildren();
+            let occupied = [];
+            const minDist = 130;
 
             stimuli.forEach((stimulus, index) => {
                 const slot = slots[index];
                 if (trial.includes(index)) {
-                    // Randomize positions for the stimuli in the trial
-                    stimulus.setPosition(
-                        Phaser.Math.Between(this.centerX - 300, this.centerX + 300),
-                        Phaser.Math.Between(this.centerY - 300, this.centerY - 100)
+                    const pos = this.generateNonOverlappingPosition(
+                        occupied,
+                        minDist,
+                        {
+                            minX: this.centerX - 300,
+                            maxX: this.centerX + 300,
+                            minY: this.centerY - 300,
+                            maxY: this.centerY + 300,
+                        }
                     );
+                    occupied.push(pos);
+                    stimulus.setPosition(pos.x, pos.y);
                 } else {
-                    // Reset position for all other stimuli
                     stimulus.setPosition(slot.x, slot.y);
                 }
-                stimulus.setAlpha(1); // Ensure stimuli are visible
-                stimulus.setDepth(1); // Reset depth
-                slot.isOccupied = false; // Reset slot state
+                stimulus.setAlpha(1);
+                stimulus.setDepth(1);
+                slot.isOccupied = false;
             });
 
-            // Handle the trial-specific stimuli
-            const stimulus1 = stimuli[trial[0]];
-            const stimulus2 = stimuli[trial[1]];
+            const stimulusA = stimuli[trial[0]];
+            const stimulusB = stimuli[trial[1]];
 
-            // Make stimuli reappear at their randomized positions
+            let correctSlotForStimA, correctSlotForStimB;
+            if (Phaser.Math.RND.between(0, 1) === 0) {
+                correctSlotForStimA = trial[0];
+                correctSlotForStimB = trial[1];
+            } else {
+                correctSlotForStimA = trial[1];
+                correctSlotForStimB = trial[0];
+            }
+
+            const stimuliToProcess = Phaser.Math.RND.shuffle([
+                { stim: stimulusA, correctSlot: correctSlotForStimA, order: 0 },
+                { stim: stimulusB, correctSlot: correctSlotForStimB, order: 1 }
+            ]);
+
             this.tweens.add({
-                targets: [stimulus1, stimulus2],
+                targets: [stimulusA, stimulusB],
                 alpha: 1,
                 duration: 0,
                 onComplete: async () => {
-                    // Make the first stimulus glow and draggable
-                    await this.addGlowEffect(stimulus1, true);
-                    await this.makeDraggable(stimulus1, trial[0], trialIndex, 0, 'shape');
+                    // Activate and make the first stimulus draggable
+                    const firstItem = stimuliToProcess[0];
+                    await this.addGlowEffect(firstItem.stim, true);
+                    await this.makeDraggable(firstItem.stim, firstItem.correctSlot, trialIndex, firstItem.order, dim);
+                    this.addGlowEffect(firstItem.stim, false); // Remove glow after it's placed
 
-                    // Make the second stimulus glow and draggable
-                    await this.addGlowEffect(stimulus2, true);
-                    await this.makeDraggable(stimulus2, trial[1], trialIndex, 1, 'shape');
+                    // Activate and make the second stimulus draggable
+                    const secondItem = stimuliToProcess[1];
+                    await this.addGlowEffect(secondItem.stim, true);
+                    await this.makeDraggable(secondItem.stim, secondItem.correctSlot, trialIndex, secondItem.order, dim);
+                    this.addGlowEffect(secondItem.stim, false); // Remove glow after it's placed
 
-                    resolve();
+                    // NOW that both stimuli have been placed, check overall trial correctness
+                    const isTrialCorrect = this.checkOrderCorrectness(trialIndex, dim);
+                    // Store the overall trial correctness in the main results array
+                    // Ensure the array for trialIndex exists
+                    if (!this.results[dim]) { // Initialize if it doesn't exist
+                        this.results[dim] = [];
+                    }
+                    //this.results[dim][trialIndex] = isTrialCorrect; // Stores 0 or 1 for the whole trial
+                    this.results[dim][trialIndex] = isTrialCorrect === 1;
+
+                    console.log(`Trial ${trialIndex} (${dim}): Overall Correct = ${isTrialCorrect}`);
+
+                    resolve(); // Resolve the main runShapeTask promise only after both are placed and checked
                 },
             });
         });
     }
+
+
     playSoundAndWait(sound) {
         return new Promise((resolve) => {
             // Play the sound
@@ -365,121 +429,175 @@ class ExperimentScene extends Phaser.Scene {
             sound.once('complete', resolve);
         });
     }
+
+    generateNonOverlappingPosition(existing, radius, bounds) {
+        let x, y, safe;
+        do {
+            safe = true;
+            x = Phaser.Math.Between(bounds.minX, bounds.maxX);
+            y = Phaser.Math.Between(bounds.minY, bounds.maxY);
+            for (const pos of existing) {
+                const dx = pos.x - x;
+                const dy = pos.y - y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < radius) {
+                    safe = false;
+                    break;
+                }
+            }
+        } while (!safe);
+        return { x, y };
+    }
+
     runColorTask(trial, trialIndex) {
-        return new Promise((resolve) => {
-            // Reset all stimuli to their original positions
+        return new Promise(async (resolve) => {
+            const dim = 'color';
             const stimuli = this.stimuliGr.getChildren();
             const slots = this.slotsGr.getChildren();
+            let occupied = [];
+            const minDist = 130;
 
             stimuli.forEach((stimulus, index) => {
                 const slot = slots[index];
                 if (trial.includes(index)) {
-                    // Randomize positions for the stimuli in the trial
-                    stimulus.setPosition(
-                        Phaser.Math.Between(this.centerX - 300, this.centerX + 300),
-                        Phaser.Math.Between(this.centerY - 300, this.centerY + 300)
+                    const pos = this.generateNonOverlappingPosition(
+                        occupied,
+                        minDist,
+                        {
+                            minX: this.centerX - 300,
+                            maxX: this.centerX + 300,
+                            minY: this.centerY - 300,
+                            maxY: this.centerY + 300,
+                        }
                     );
+                    occupied.push(pos);
+                    stimulus.setPosition(pos.x, pos.y);
                 } else {
-                    // Reset position for all other stimuli
                     stimulus.setPosition(slot.x, slot.y);
                 }
-                stimulus.setAlpha(1); // Ensure stimuli are visible
-                stimulus.setDepth(1); // Reset depth
-                slot.isOccupied = false; // Reset slot state
+                stimulus.setAlpha(1);
+                stimulus.setDepth(1);
+                slot.isOccupied = false;
             });
 
-            // Handle the trial-specific stimuli
-            const stimulus1 = stimuli[trial[0]];
-            const stimulus2 = stimuli[trial[1]];
+            const stimulusA = stimuli[trial[0]];
+            const stimulusB = stimuli[trial[1]];
 
-            // Make stimuli reappear at their randomized positions
+            let correctSlotForStimA, correctSlotForStimB;
+            if (Phaser.Math.RND.between(0, 1) === 0) {
+                correctSlotForStimA = trial[0];
+                correctSlotForStimB = trial[1];
+            } else {
+                correctSlotForStimA = trial[1];
+                correctSlotForStimB = trial[0];
+            }
+
+            const stimuliToProcess = Phaser.Math.RND.shuffle([
+                { stim: stimulusA, correctSlot: correctSlotForStimA, order: 0 },
+                { stim: stimulusB, correctSlot: correctSlotForStimB, order: 1 }
+            ]);
+
             this.tweens.add({
-                targets: [stimulus1, stimulus2],
+                targets: [stimulusA, stimulusB],
                 alpha: 1,
                 duration: 0,
                 onComplete: async () => {
-                    // Make the first stimulus glow and draggable
-                    await this.addGlowEffect(stimulus1, true);
-                    await this.makeDraggable(stimulus1, trial[0], trialIndex, 0), 'color';
-                    console.log(this.results.color)
+                    // Activate and make the first stimulus draggable
+                    const firstItem = stimuliToProcess[0];
+                    await this.addGlowEffect(firstItem.stim, true);
+                    await this.makeDraggable(firstItem.stim, firstItem.correctSlot, trialIndex, firstItem.order, dim);
+                    this.addGlowEffect(firstItem.stim, false); // Remove glow after it's placed
 
-                    // Make the second stimulus glow and draggable
-                    await this.addGlowEffect(stimulus2, true);
-                    await this.makeDraggable(stimulus2, trial[1], trialIndex, 1, 'color');
+                    // Activate and make the second stimulus draggable
+                    const secondItem = stimuliToProcess[1];
+                    await this.addGlowEffect(secondItem.stim, true);
+                    await this.makeDraggable(secondItem.stim, secondItem.correctSlot, trialIndex, secondItem.order, dim);
+                    this.addGlowEffect(secondItem.stim, false); // Remove glow after it's placed
 
-                    resolve();
+                    // NOW that both stimuli have been placed, check overall trial correctness
+                    const isTrialCorrect = this.checkOrderCorrectness(trialIndex, dim);
+                    // Store the overall trial correctness in the main results array
+                    if (!this.results[dim]) { // Initialize if it doesn't exist
+                        this.results[dim] = [];
+                    }
+                    //this.results[dim][trialIndex] = isTrialCorrect; // Stores 0 or 1 for the whole trial
+                    this.results[dim][trialIndex] = isTrialCorrect === 1;
+
+                    console.log(`Trial ${trialIndex} (${dim}): Overall Correct = ${isTrialCorrect}`);
+
+                    resolve(); // Resolve the main runColorTask promise only after both are placed and checked
                 },
             });
         });
     }
 
 
-    makeDraggable(stimulus, correctIndex, trialIndex, stimId, dim='color') {
+    // Inside your ExperimentScene class
+
+    makeDraggable(stimulus, correctIndex, trialIndex, stimOrderInTrial, dim = 'color') {
         return new Promise((resolve) => {
+            // Ensure interactivity is set each time makeDraggable is called for a new stimulus
             stimulus.setInteractive({ draggable: true });
             this.input.setDraggable(stimulus);
 
-            // Clean up existing listeners to prevent duplicate triggers
-            this.input.off('drag');
-            this.input.off('dragend');
+            // Important: Remove previous listeners on *this specific stimulus* if any,
+            // before adding new ones, to prevent multiple triggers.
+            stimulus.off('drag');
+            stimulus.off('dragend');
 
-            // Add dragging logic
-            this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-                if (gameObject === stimulus) {
-                    // Bring the stimulus to the top
-                    gameObject.setDepth(10);
-                    gameObject.x = dragX;
-                    gameObject.y = dragY;
-                    // Remove glow when dragging ends
-                    this.addGlowEffect(gameObject, false);
+            stimulus.on('drag', (pointer, dragX, dragY) => {
+                stimulus.setDepth(10);
+                stimulus.x = dragX;
+                stimulus.y = dragY;
+                if (stimulus.updateGlow) {
+                    stimulus.updateGlow();
                 }
             });
 
-            // Add drag end logic
-            this.input.on('dragend', (pointer, gameObject) => {
-                if (gameObject === stimulus) {
-                    // Reset depth after dragging ends
-                    gameObject.setDepth(1);
+            stimulus.on('dragend', () => {
+                stimulus.setDepth(1);
 
-                    // Find the nearest slot
-                    let nearestSlot = null;
-                    let minDistance = Infinity;
-                    this.slotsGr.getChildren().forEach((slot) => {
-                        const dx = slot.x - gameObject.x;
-                        const dy = slot.y - gameObject.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            nearestSlot = slot;
-                        }
-                    });
-
-                    // Snap to the nearest slot
-                    if (nearestSlot) {
-                        gameObject.x = nearestSlot.x;
-                        gameObject.y = nearestSlot.y;
-
-                        // Mark the slot as occupied
-                        nearestSlot.isOccupied = true;
+                let nearestSlot = null;
+                let minDistance = Infinity;
+                this.slotsGr.getChildren().forEach((slot) => {
+                    const dx = slot.x - stimulus.x;
+                    const dy = slot.y - stimulus.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestSlot = slot;
                     }
+                });
 
-                    // Record result as true if placed in the correct slot, false otherwise
-                    const isCorrect = nearestSlot && nearestSlot.x === this.slotsGr.getChildren()[correctIndex].x && nearestSlot.y === this.slotsGr.getChildren()[correctIndex].y;
-                    if (dim =='color') {
-                        if (!this.results.color[stimId]) this.results.color[stimId] = [];
-                        this.results[dim][stimId][trialIndex] = isCorrect;
-                    } else if (dim=='shape') {
-                        if (!this.results.shape[stimId]) this.results.shape[stimId] = [];
-                        this.results.shape[stimId][trialIndex] = isCorrect;
-                    }
+                const snapThreshold = 50;
+                const isCloseEnough = minDistance <= snapThreshold;
 
-                    console.log(`Trial ${stimId}, Stim ${stimId}: ${isCorrect ? 'Correct' : 'Wrong'}`);
+                if (isCloseEnough) {
+                    stimulus.x = nearestSlot.x;
+                    stimulus.y = nearestSlot.y;
+                    nearestSlot.isOccupied = true;
 
-                    
+                    // Record individual stimulus placement
+                    if (!this.results.placement) this.results.placement = {};
+                    if (!this.results.placement[dim]) this.results.placement[dim] = [];
+                    if (!this.results.placement[dim][trialIndex]) this.results.placement[dim][trialIndex] = {};
 
-                    gameObject.disableInteractive(); // Disable dragging
+                    const slotIndex = this.slotsGr.getChildren().indexOf(nearestSlot);
+                    const val = stimulus.texture?.key || stimulus.fillColor;
+                    this.results.placement[dim][trialIndex][slotIndex] = val;
+
+                    this.addGlowEffect(stimulus, false);
+                    stimulus.disableInteractive();
+                    stimulus.off('drag'); // Remove individual drag listeners
+                    stimulus.off('dragend'); // Remove individual dragend listeners
+
+                    // IMPORTANT FIX: Resolve the promise *here*, as soon as *this* stimulus is placed.
+                    // The overall trial correctness check will happen in runShapeTask/runColorTask.
                     resolve();
                 }
+                // If not close enough, the stimulus should snap back or remain draggable.
+                // For now, it stays where it was dropped if not snapped.
+                // You might want to add a snap-back or re-enable interactivity if not snapped.
             });
         });
     }
@@ -505,6 +623,57 @@ class ExperimentScene extends Phaser.Scene {
     }
         */
 
+        checkOrderCorrectness(trialIndex, dim = 'shape') {
+            const placements = this.results.placement?.[dim]?.[trialIndex];
+            if (!placements) return 0; // No placements for this trial yet
+
+            const currentTrialPairIndices = this.trialPairs[trialIndex]; // e.g., [2, 3]
+
+            // Create a map of placed items by their slot index for easy lookup
+            const placedInSlots = {};
+            for (const slotIdx in placements) {
+                placedInSlots[parseInt(slotIdx)] = placements[slotIdx];
+            }
+
+            // Determine the expected correct values for the two stimuli based on their original indices
+            let expectedValues = [];
+            if (dim === 'shape') {
+                expectedValues.push(`stim${currentTrialPairIndices[0] + 1}`);
+                expectedValues.push(`stim${currentTrialPairIndices[1] + 1}`);
+            } else if (dim === 'color') {
+                expectedValues.push(this.colors[currentTrialPairIndices[0]]);
+                expectedValues.push(this.colors[currentTrialPairIndices[1]]);
+            }
+
+            // Check if the two specific stimuli from `currentTrialPairIndices` are present in the `placements`
+            // and are in their respective correct slots.
+            let correctPlacementsCount = 0;
+            
+            // Iterate over the two stimuli that belong in this trial
+            for (let i = 0; i < currentTrialPairIndices.length; i++) {
+                const originalStimulusIndex = currentTrialPairIndices[i]; // e.g., 2 or 3
+                const expectedValue = (dim === 'shape') ? `stim${originalStimulusIndex + 1}` : this.colors[originalStimulusIndex];
+
+                // Find which slot this stimulus was placed into
+                let placedSlotIndex = -1;
+                for(const sIdx in placedInSlots) {
+                    if (placedInSlots[sIdx] === expectedValue) {
+                        placedSlotIndex = parseInt(sIdx);
+                        break;
+                    }
+                }
+
+                // If the stimulus was placed, check if it's in its correct original slot
+                // The condition for correctness is that the stimulus originally from `originalStimulusIndex`
+                // must be placed into the slot at `originalStimulusIndex`.
+                if (placedSlotIndex === originalStimulusIndex) {
+                    correctPlacementsCount++;
+                }
+            }
+
+            // A trial is correct if both stimuli were placed in their designated correct slots.
+            return (correctPlacementsCount === 2) ? 1 : 0;
+        }
 
     // Modify addGlowEffect to make glow tight around images
         addGlowEffect(stimulus, enable) {
