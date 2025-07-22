@@ -586,7 +586,17 @@ class ExperimentScene extends Phaser.Scene {
                     if (!this.results.placement[dim][trialIndex]) this.results.placement[dim][trialIndex] = {};
 
                     const slotIndex = this.slotsGr.getChildren().indexOf(nearestSlot);
-                    const val = stimulus.texture?.key || stimulus.fillColor;
+
+                    let val;
+                    if (dim === 'color') {
+                        // Convert numeric color to hex string (e.g., 0xff4400 to '#FF4400' or '0xFF4400')
+                        val = '0x' + stimulus.fillColor.toString(16).padStart(6, '0');
+                    } else {
+                        // For shape, keep the texture key string
+                        val = stimulus.texture?.key;
+                    }
+
+                    //const val = stimulus.texture?.key || stimulus.fillColor;
                     this.results.placement[dim][trialIndex][slotIndex] = val;
 
                     this.addGlowEffect(stimulus, false);
