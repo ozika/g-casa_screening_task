@@ -279,7 +279,10 @@ class ExperimentScene extends Phaser.Scene {
     }
     
     postData(data) {
-        console.log(data)
+        console.log(data);
+        console.log(Object.keys(data));
+        console.log(data.subid);
+        console.log(data["subid"]);
         console.log('entered postData');
         var xhr = new XMLHttpRequest();
         xhr.open('POST', 'save_data.php', true); // change 'write_data.php' to point to php script.
