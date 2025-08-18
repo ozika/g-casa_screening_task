@@ -637,56 +637,34 @@ class ExperimentScene extends Phaser.Scene {
         */
 
         checkOrderCorrectness(trialIndex, dim = 'shape') {
-            const placements = this.results.placement?.[dim]?.[trialIndex];
-            if (!placements) return 0; // No placements for this trial yet
+    const placements = this.results.placement?.[dim]?.[trialIndex];
+    if (!placements) return 0; // Return 0 if no placements exist for this trial
 
-            const currentTrialPairIndices = this.trialPairs[trialIndex]; // e.g., [2, 3]
+    const currentTrialPairIndices = this.trialPairs[trialIndex];
+    const slot1Index = currentTrialPairIndices[0];
+    const slot2Index = currentTrialPairIndices[1];
 
-            // Create a map of placed items by their slot index for easy lookup
-            const placedInSlots = {};
-            for (const slotIdx in placements) {
-                placedInSlots[parseInt(slotIdx)] = placements[slotIdx];
-            }
+    // Determine the expected correct values for each specific slot
+    let expectedValueForSlot1, expectedValueForSlot2;
+    if (dim === 'shape') {
+        expectedValueForSlot1 = `stim${slot1Index + 1}`;
+        expectedValueForSlot2 = `stim${slot2Index + 1}`;
+    } else if (dim === 'color') {
+        expectedValueForSlot1 = '0x' + this.colors[slot1Index].toString(16).padStart(6, '0');
+        expectedValueForSlot2 = '0x' + this.colors[slot2Index].toString(16).padStart(6, '0');
+    }
 
-            // Determine the expected correct values for the two stimuli based on their original indices
-            let expectedValues = [];
-            if (dim === 'shape') {
-                expectedValues.push(`stim${currentTrialPairIndices[0] + 1}`);
-                expectedValues.push(`stim${currentTrialPairIndices[1] + 1}`);
-            } else if (dim === 'color') {
-                expectedValues.push(this.colors[currentTrialPairIndices[0]]);
-                expectedValues.push(this.colors[currentTrialPairIndices[1]]);
-            }
+    // Get the values that were actually placed in the two relevant slots
+    const placedValueInSlot1 = placements[slot1Index];
+    const placedValueInSlot2 = placements[slot2Index];
 
-            // Check if the two specific stimuli from `currentTrialPairIndices` are present in the `placements`
-            // and are in their respective correct slots.
-            let correctPlacementsCount = 0;
-            
-            // Iterate over the two stimuli that belong in this trial
-            for (let i = 0; i < currentTrialPairIndices.length; i++) {
-                const originalStimulusIndex = currentTrialPairIndices[i]; // e.g., 2 or 3
-                const expectedValue = (dim === 'shape') ? `stim${originalStimulusIndex + 1}` : this.colors[originalStimulusIndex];
+    // Check if the placed value in each slot matches its corresponding correct value
+    const isCorrectInSlot1 = placedValueInSlot1 === expectedValueForSlot1;
+    const isCorrectInSlot2 = placedValueInSlot2 === expectedValueForSlot2;
 
-                // Find which slot this stimulus was placed into
-                let placedSlotIndex = -1;
-                for(const sIdx in placedInSlots) {
-                    if (placedInSlots[sIdx] === expectedValue) {
-                        placedSlotIndex = parseInt(sIdx);
-                        break;
-                    }
-                }
-
-                // If the stimulus was placed, check if it's in its correct original slot
-                // The condition for correctness is that the stimulus originally from `originalStimulusIndex`
-                // must be placed into the slot at `originalStimulusIndex`.
-                if (placedSlotIndex === originalStimulusIndex) {
-                    correctPlacementsCount++;
-                }
-            }
-
-            // A trial is correct if both stimuli were placed in their designated correct slots.
-            return (correctPlacementsCount === 2) ? 1 : 0;
-        }
+    // The trial is correct only if both individual placements are correct
+    return (isCorrectInSlot1 && isCorrectInSlot2) ? 1 : 0;
+}
 
     // Modify addGlowEffect to make glow tight around images
         addGlowEffect(stimulus, enable) {
